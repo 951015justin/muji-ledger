@@ -1,0 +1,2966 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="極簡記帳">
+<title>無印極簡記帳</title>
+<style>
+  :root {
+    --bg-canvas: #FAF8F6;
+    --surface: #FFFFFF;
+    --surface-muted: #F2EFEA;
+    --text-main: #2F2E2C;
+    --text-sub: #8A8680;
+    --border-hairline: rgba(47, 46, 44, 0.08);
+    --expense-color: #D8A3A3;
+    --income-color: #93B599;
+    --arch-gray: #D5D2CD;
+    --arch-gray-text: #4B4946;
+    --theme-accent: #E0C8C8;
+    --theme-tint: #FBF9F9;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    background-color: var(--theme-tint);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;
+    transition: background-color 0.25s ease;
+  }
+
+  #app {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    background-color: var(--theme-tint);
+    transition: background-color 0.25s ease;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .top-header {
+    padding: calc(env(safe-area-inset-top, 12px) + 46px) 20px 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  .ledger-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ledger-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ledger-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--theme-accent);
+  }
+
+  .ledger-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .ledger-balance-sub {
+    font-size: 13px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+
+  .ledger-balance-sub span {
+    color: var(--text-main);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .view-pill-toggle {
+    display: flex;
+    background: rgba(47, 46, 44, 0.06);
+    padding: 3px;
+    border-radius: 12px;
+    gap: 2px;
+  }
+
+  .view-pill-btn {
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .view-pill-btn.active {
+    background: var(--surface);
+    color: var(--text-main);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Main Views */
+  .main-view {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 16px 135px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main-view::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Calendar Card */
+  .cal-card {
+    background: var(--surface);
+    border-radius: 22px;
+    padding: 16px 14px;
+    box-shadow: 0 4px 20px rgba(47, 46, 44, 0.035);
+    border: 1px solid var(--border-hairline);
+    margin-bottom: 14px;
+  }
+
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px 12px 6px;
+  }
+
+  .cal-nav-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface-muted);
+    color: var(--text-main);
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .cal-month-label {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-sub);
+    margin-bottom: 8px;
+  }
+
+  .cal-weekdays div:first-child {
+    color: #C98A8A;
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px 2px;
+  }
+
+  .cal-cell {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.12s ease;
+  }
+
+  .cal-cell.other-month {
+    opacity: 0.28;
+  }
+
+  .cal-day-num {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cal-cell.selected {
+    background-color: var(--theme-accent);
+    color: #2F2E2C;
+    font-weight: 700;
+  }
+
+  .cal-cell.is-today:not(.selected) .cal-day-num {
+    color: #B86B6B;
+    font-weight: 800;
+  }
+
+  .cal-dots {
+    display: flex;
+    gap: 2px;
+    height: 4px;
+    margin-top: 2px;
+  }
+
+  .cal-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+  }
+
+  .cal-dot.exp { background-color: var(--expense-color); }
+  .cal-dot.inc { background-color: var(--income-color); }
+
+  /* Daily Summary & Transactions */
+  .day-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 10px 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-sub);
+  }
+
+  .day-header-totals {
+    display: flex;
+    gap: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tx-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tx-swipe-wrap {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #D97A7A;
+  }
+
+  .tx-delete-bg {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFF;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .tx-card {
+    position: relative;
+    background: var(--surface);
+    padding: 13px 16px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid var(--border-hairline);
+    transition: transform 0.16s ease-out;
+    z-index: 2;
+  }
+
+  .tx-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .tx-cat-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .tx-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .tx-cat-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .tx-note {
+    font-size: 12px;
+    color: var(--text-sub);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tx-amount {
+    font-size: 16px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  .tx-amount.exp { color: var(--text-main); }
+  .tx-amount.inc { color: #5D8E66; }
+
+  .empty-state {
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 18px;
+    padding: 28px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-sub);
+    border: 1px dashed var(--border-hairline);
+  }
+
+  /* List Mode Group Header */
+  .list-date-group {
+    margin-bottom: 14px;
+  }
+
+  .list-date-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-sub);
+    padding: 4px 6px 6px 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Accounts View */
+  .net-worth-card {
+    background: var(--surface);
+    border-radius: 22px;
+    padding: 20px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border-hairline);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.03);
+  }
+
+  .nw-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-sub);
+  }
+
+  .nw-value {
+    font-size: 32px;
+    font-weight: 800;
+    margin: 4px 0 14px 0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .nw-sub-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-hairline);
+  }
+
+  .nw-sub-item span {
+    display: block;
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-bottom: 2px;
+  }
+
+  .nw-sub-item strong {
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .acc-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid var(--border-hairline);
+    cursor: pointer;
+    transition: transform 0.12s ease, opacity 0.15s ease;
+  }
+
+  .acc-card:active {
+    transform: scale(0.985);
+  }
+
+  .acc-card-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .acc-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    flex-shrink: 0;
+  }
+
+  .acc-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .acc-name {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .acc-exclude-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: var(--surface-muted);
+    color: var(--text-sub);
+  }
+
+  .acc-count {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-top: 2px;
+  }
+
+  .acc-right {
+    text-align: right;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .acc-bal {
+    font-size: 17px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .acc-bal.neg { color: #C76A6A; }
+
+  .acc-hint-banner {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-sub);
+    padding: 6px 0 2px 0;
+  }
+
+  /* Charts View */
+  .chart-filter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .chart-top-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    padding: 10px 14px;
+    border-radius: 18px;
+    border: 1px solid var(--border-hairline);
+  }
+
+  .chart-ledger-chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .chart-ledger-chips::-webkit-scrollbar { display: none; }
+
+  .chip-btn {
+    border: 1px solid var(--border-hairline);
+    background: var(--surface);
+    color: var(--text-sub);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .chip-btn.active {
+    background: var(--text-main);
+    color: #FFF;
+    border-color: var(--text-main);
+  }
+
+  .donut-card {
+    background: var(--surface);
+    border-radius: 22px;
+    padding: 20px 16px;
+    border: 1px solid var(--border-hairline);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .donut-wrap {
+    position: relative;
+    width: 236px;
+    height: 236px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .donut-center {
+    position: absolute;
+    width: 142px;
+    text-align: center;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.25;
+  }
+
+  .donut-center-sub {
+    font-size: 11px;
+    color: var(--text-sub);
+    font-weight: 600;
+  }
+
+  .donut-center-label {
+    font-size: 11px;
+    color: var(--text-sub);
+    font-weight: 600;
+    margin-top: 1px;
+  }
+
+  .donut-center-val {
+    font-size: 22px;
+    font-weight: 800;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .chart-cat-card {
+    background: var(--surface);
+    border-radius: 16px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-hairline);
+    overflow: hidden;
+  }
+
+  .chart-cat-row {
+    padding: 13px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+  }
+
+  .chart-cat-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .chart-cat-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+  }
+
+  .chart-cat-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chart-cat-amt {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .chart-cat-pct {
+    font-size: 12px;
+    color: var(--text-sub);
+    width: 34px;
+    text-align: right;
+  }
+
+  .chart-cat-details {
+    background: var(--surface-muted);
+    padding: 8px 14px;
+    border-top: 1px solid var(--border-hairline);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .chart-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    padding: 4px 0;
+  }
+
+  /* Settings View */
+  .settings-card {
+    background: var(--surface);
+    border-radius: 22px;
+    padding: 18px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border-hairline);
+  }
+
+  .settings-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+  }
+
+  .settings-desc {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin: 0 0 14px 0;
+  }
+
+  .pill-drag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .drag-pill {
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--surface-muted);
+    color: var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: grab;
+    border: 1px solid var(--border-hairline);
+    touch-action: none;
+  }
+
+  .drag-pill.active {
+    background: var(--theme-accent);
+    color: #2F2E2C;
+  }
+
+  .drag-pill.dragging {
+    opacity: 0.45;
+    transform: scale(0.95);
+  }
+
+  .pill-del-x {
+    font-size: 14px;
+    color: var(--text-sub);
+    padding-left: 2px;
+    cursor: pointer;
+  }
+
+  .add-cat-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .muji-input {
+    flex: 1;
+    border: 1px solid var(--border-hairline);
+    background: var(--surface-muted);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--text-main);
+    outline: none;
+  }
+
+  .muji-btn {
+    border: none;
+    background: var(--text-main);
+    color: #FFF;
+    border-radius: 14px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .muji-btn.secondary {
+    background: var(--surface-muted);
+    color: var(--text-main);
+  }
+
+  .muji-btn.danger {
+    background: #F4E4E4;
+    color: #B85C5C;
+  }
+
+  /* Bottom Navigation Bar (Strict Non-Overlapping) */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    height: calc(68px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(255, 255, 255, 0.96);
+    border-top: 1px solid var(--border-hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 40;
+  }
+
+  .nav-left-scroll {
+    width: calc(50% - 42px);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 0 8px 0 12px;
+  }
+
+  .nav-left-scroll::-webkit-scrollbar { display: none; }
+
+  .nav-ledger-pill {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-sub);
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .nav-ledger-pill.active {
+    color: var(--text-main);
+    font-weight: 700;
+  }
+
+  .nav-add-ledger {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px dashed rgba(47, 46, 44, 0.25);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-sub);
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .nav-right-tabs {
+    width: calc(50% - 42px);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding-right: 8px;
+  }
+
+  .nav-tab-btn {
+    border: none;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--text-sub);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+
+  .nav-tab-btn.active {
+    color: var(--text-main);
+    font-weight: 800;
+  }
+
+  .nav-tab-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 1.9;
+  }
+
+  /* Center Floating + Button */
+  .fab-plus {
+    position: fixed;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: #2F2E2C;
+    color: #FFFFFF;
+    border: 4px solid #FFFFFF;
+    box-shadow: 0 8px 22px rgba(47, 46, 44, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 300;
+    z-index: 60;
+    cursor: pointer;
+    touch-action: none;
+    transition: transform 0.12s ease, background-color 0.15s ease;
+  }
+
+  .fab-plus.active-mode {
+    background: #4A4845;
+    transform: translateX(-50%) scale(0.94);
+  }
+
+  /* Radial Marking Menu Overlay */
+  .radial-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(250, 248, 246, 0.86);
+    z-index: 55;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    touch-action: none;
+  }
+
+  .radial-overlay.open {
+    display: flex;
+  }
+
+  .radial-mode-pill {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 16px) + 56px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    padding: 10px 20px;
+    border-radius: 999px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+    border: 1px solid var(--border-hairline);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    z-index: 65;
+    pointer-events: none;
+  }
+
+  .radial-mode-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+
+  .radial-svg-box {
+    position: fixed;
+    bottom: calc(54px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 480px;
+    height: 270px;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .wedge-path {
+    stroke: #FFFFFF;
+    stroke-width: 2;
+    transition: fill 0.08s linear;
+  }
+
+  .wedge-label {
+    font-size: 13px;
+    font-weight: 700;
+    fill: #2F2E2C;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+  }
+
+  /* Slide-up Modals & Sheets */
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(47, 46, 44, 0.32);
+    z-index: 80;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .sheet-backdrop.open {
+    display: flex;
+  }
+
+  .sheet-panel {
+    width: 100%;
+    max-width: 480px;
+    background: var(--bg-canvas);
+    border-radius: 26px 26px 0 0;
+    padding: 20px 20px calc(24px + env(safe-area-inset-bottom, 0px)) 20px;
+    max-height: 90dvh;
+    overflow-y: auto;
+    animation: slideUp 0.18s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0.7; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .sheet-title {
+    font-size: 17px;
+    font-weight: 800;
+  }
+
+  /* Amount Keypad Modal */
+  .keypad-modal {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-canvas);
+    z-index: 90;
+    display: none;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: calc(env(safe-area-inset-top, 12px) + 46px) 18px calc(18px + env(safe-area-inset-bottom, 0px)) 18px;
+  }
+
+  .keypad-modal.open {
+    display: flex;
+  }
+
+  .kp-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    min-height: 32px;
+  }
+
+  .kp-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-top: auto;
+    margin-bottom: 10px;
+    padding: 0 2px;
+  }
+
+  .kp-action-btn {
+    height: 44px;
+    padding: 0 22px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+
+  .kp-action-btn:active {
+    transform: scale(0.96);
+  }
+
+  .kp-action-btn.cancel {
+    background: var(--surface-muted);
+    color: var(--text-sub);
+  }
+
+  .kp-action-btn.save {
+    background: var(--text-main);
+    color: #FFFFFF;
+    padding: 0 28px;
+  }
+
+  .kp-path-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .kp-pill {
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--surface-muted);
+  }
+
+  .kp-display-card {
+    background: var(--surface);
+    border-radius: 22px;
+    padding: 18px;
+    border: 1px solid var(--border-hairline);
+    margin-bottom: 12px;
+  }
+
+  .kp-display-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-bottom: 8px;
+  }
+
+  .kp-amount-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 6px;
+    font-size: 42px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 10px;
+  }
+
+  .kp-amount-row span {
+    font-size: 22px;
+    color: var(--text-sub);
+  }
+
+  .kp-transfer-box {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .kp-transfer-box.show {
+    display: flex;
+  }
+
+  .kp-grid {
+    margin-top: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    background: var(--surface);
+    padding: 14px;
+    border-radius: 24px;
+    border: 1px solid var(--border-hairline);
+  }
+
+  .kp-key {
+    height: 56px;
+    border-radius: 16px;
+    border: none;
+    background: var(--surface-muted);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-main);
+    cursor: pointer;
+  }
+
+  .kp-key:active {
+    background: #E4E0D8;
+  }
+
+  .kp-key.clear {
+    background: #F4E4E4;
+    color: #A85858;
+    font-size: 16px;
+  }
+
+  /* Drilldown Drawer */
+  .drilldown-modal {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-canvas);
+    z-index: 85;
+    display: none;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: calc(env(safe-area-inset-top, 12px) + 46px) 16px calc(24px + env(safe-area-inset-bottom, 0px)) 16px;
+  }
+
+  .drilldown-modal.open {
+    display: flex;
+  }
+
+  .dd-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 24px;
+  }
+
+  .dd-row {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border-hairline);
+    cursor: pointer;
+  }
+
+  .color-swatch-row {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0 16px 0;
+  }
+
+  .color-swatch {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid transparent;
+  }
+
+  .color-swatch.selected {
+    border-color: var(--text-main);
+  }
+
+  .toast-msg {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 16px) + 52px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2F2E2C;
+    color: #FFF;
+    padding: 9px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 120;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .toast-msg.show {
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Top Header -->
+  <header class="top-header" id="main-header">
+    <div class="ledger-title-group">
+      <div class="ledger-title-row">
+        <span class="ledger-dot" id="header-dot"></span>
+        <h1 class="ledger-title" id="header-title">錢包</h1>
+      </div>
+      <div class="ledger-balance-sub" id="header-sub">餘額 <span id="header-bal">$0</span></div>
+    </div>
+    <div class="view-pill-toggle" id="ledger-view-toggle">
+      <button class="view-pill-btn active" id="btn-mode-cal" onclick="setLedgerSubMode('calendar')">行事曆</button>
+      <button class="view-pill-btn" id="btn-mode-list" onclick="setLedgerSubMode('list')">清單</button>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="main-view" id="main-content"></main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <div class="nav-left-scroll" id="nav-ledger-list"></div>
+    <div class="nav-right-tabs">
+      <button class="nav-tab-btn" id="tab-accounts" onclick="switchTab('accounts')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>帳戶</span>
+      </button>
+      <button class="nav-tab-btn" id="tab-charts" onclick="switchTab('charts')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+        <span>圖表</span>
+      </button>
+      <button class="nav-tab-btn" id="tab-settings" onclick="switchTab('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>設定</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Center Floating + Button -->
+  <button class="fab-plus" id="fab-plus">+</button>
+
+  <!-- Radial Marking Menu Overlay -->
+  <div class="radial-overlay" id="radial-overlay">
+    <div class="radial-mode-pill" id="radial-mode-pill">
+      <span class="radial-mode-dot" id="radial-mode-dot"></span>
+      <span id="radial-mode-text">模式：支出（加號區下滑切換）</span>
+    </div>
+    <svg class="radial-svg-box" id="radial-svg" viewBox="-240 -255 480 270"></svg>
+  </div>
+
+  <!-- Amount Input Keypad Modal -->
+  <div class="keypad-modal" id="keypad-modal">
+    <div class="kp-top-bar">
+      <div class="kp-path-pills">
+        <span class="kp-pill" id="kp-ledger-pill">錢包</span>
+        <span>›</span>
+        <span class="kp-pill" id="kp-cat-pill">早餐</span>
+      </div>
+    </div>
+
+    <div class="kp-display-card">
+      <div class="kp-display-meta">
+        <span id="kp-type-label">支出金額</span>
+        <input type="date" id="kp-date-input" style="border:none;background:#F2EFEA;padding:4px 10px;border-radius:10px;font-size:12px;font-weight:600;color:#2F2E2C;">
+      </div>
+      <div class="kp-amount-row">
+        <span>$</span><div id="kp-amount-val">0</div>
+      </div>
+      <div class="kp-transfer-box" id="kp-transfer-box">
+        <span style="font-size:12px;font-weight:700;color:#8A8680;">轉入至：</span>
+        <div id="kp-transfer-targets" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+      </div>
+      <input type="text" class="muji-input" id="kp-note-input" placeholder="點擊輸入備註（例如：午餐、咖啡...）" style="width:100%;">
+    </div>
+
+    <div class="kp-action-row">
+      <button class="kp-action-btn cancel" onclick="closeKeypad()">取消</button>
+      <button class="kp-action-btn save" onclick="saveTransaction()">儲存</button>
+    </div>
+
+    <div class="kp-grid">
+      <button class="kp-key" onclick="kpPress('7')">7</button>
+      <button class="kp-key" onclick="kpPress('8')">8</button>
+      <button class="kp-key" onclick="kpPress('9')">9</button>
+      <button class="kp-key" onclick="kpPress('4')">4</button>
+      <button class="kp-key" onclick="kpPress('5')">5</button>
+      <button class="kp-key" onclick="kpPress('6')">6</button>
+      <button class="kp-key" onclick="kpPress('1')">1</button>
+      <button class="kp-key" onclick="kpPress('2')">2</button>
+      <button class="kp-key" onclick="kpPress('3')">3</button>
+      <button class="kp-key clear" onclick="kpClear()">清除</button>
+      <button class="kp-key" onclick="kpPress('0')">0</button>
+      <button class="kp-key" onclick="kpBackspace()">⌫</button>
+    </div>
+  </div>
+
+  <!-- Ledger Edit / Create Sheet -->
+  <div class="sheet-backdrop" id="ledger-sheet" onclick="if(event.target===this) closeLedgerSheet()">
+    <div class="sheet-panel">
+      <div class="sheet-header">
+        <span class="sheet-title" id="ledger-sheet-title">編輯帳本</span>
+        <button class="muji-btn secondary" onclick="closeLedgerSheet()">關閉</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#8A8680;display:block;margin-bottom:4px;">帳本名稱</label>
+          <input type="text" class="muji-input" id="edit-ledger-name" style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#8A8680;display:block;margin-bottom:4px;">目前餘額校正（系統將自動推算期初值）</label>
+          <input type="number" class="muji-input" id="edit-ledger-bal" style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#8A8680;display:block;margin-bottom:4px;">主題色票</label>
+          <div class="color-swatch-row" id="edit-ledger-colors"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="muji-btn danger" id="btn-delete-ledger" onclick="deleteEditingLedger()" style="flex:1;">刪除帳本</button>
+          <button class="muji-btn" onclick="saveEditingLedger()" style="flex:2;">儲存設定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account Long-Press Asset Inclusion Sheet -->
+  <div class="sheet-backdrop" id="asset-sheet" onclick="if(event.target===this) closeAssetSheet()">
+    <div class="sheet-panel">
+      <div class="sheet-header">
+        <span class="sheet-title" id="asset-sheet-title">帳戶資產設定</span>
+        <button class="muji-btn secondary" onclick="closeAssetSheet()">完成</button>
+      </div>
+      <p style="font-size:13px;color:#8A8680;margin:0 0 16px 0;" id="asset-sheet-desc">選擇是否將此帳戶的餘額計入「淨資產總計」。</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="muji-btn" id="btn-include-asset" onclick="setAccountAssetInclusion(true)" style="width:100%;padding:14px;">納入總資產計算</button>
+        <button class="muji-btn secondary" id="btn-exclude-asset" onclick="setAccountAssetInclusion(false)" style="width:100%;padding:14px;">不計入總資產（僅獨立追蹤）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account 3-Tier Drilldown Modal -->
+  <div class="drilldown-modal" id="drilldown-modal">
+    <div class="kp-top-bar">
+      <button class="muji-btn secondary" id="dd-back-btn" onclick="drilldownBack()">‹ 返回</button>
+      <span class="sheet-title" id="dd-title">帳戶明細</span>
+      <span style="width:52px;"></span>
+    </div>
+    <div class="dd-scroll" id="dd-content"></div>
+  </div>
+
+  <div class="toast-msg" id="toast-msg"></div>
+</div>
+
+<script>
+const MUJI_SWATCHES = ['#E0C8C8', '#E8DED1', '#D9E4D5', '#D1D5DF', '#E5D5C5', '#D2E0DF'];
+
+const DEFAULT_LEDGERS = [
+  { id: 'ledger-wallet', name: '錢包', color: '#E0C8C8', initialBalance: 0, includeInAssets: true },
+  { id: 'ledger-living', name: '生活費', color: '#E8DED1', initialBalance: 0, includeInAssets: true },
+  { id: 'ledger-vault', name: '金庫', color: '#D9E4D5', initialBalance: 0, includeInAssets: false },
+  { id: 'ledger-credit', name: '信用卡', color: '#D1D5DF', initialBalance: 0, includeInAssets: false }
+];
+
+const DEFAULT_TIER2_MAP = {
+  'ledger-wallet': ['早餐', '中餐', '晚餐', '飲料與點心'],
+  'ledger-living': ['日常用品', '機車', '水電'],
+  'ledger-vault': ['生活費', '娛樂', '追星', '生活用品'],
+  'ledger-credit': ['吃', '娛樂', '交通', '日常用品']
+};
+
+const STORAGE_KEYS = {
+  LEDGERS: 'muji_book_ledgers_v5',
+  TXS: 'muji_book_txs_v5',
+  TIER2: 'muji_book_tier2_v5'
+};
+
+let ledgers = [];
+let transactions = [];
+let tier2Map = {};
+
+let activeLedgerId = 'ledger-wallet';
+let currentTab = 'ledger'; // 'ledger' | 'accounts' | 'charts' | 'settings'
+let ledgerSubMode = 'calendar'; // 'calendar' | 'list'
+function getTodayDateStr() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+const _initNow = new Date();
+let calYear = _initNow.getFullYear();
+let calMonth = _initNow.getMonth() + 1; // 1-12
+let selectedDateStr = getTodayDateStr();
+
+let chartYear = _initNow.getFullYear();
+let chartMonth = _initNow.getMonth() + 1;
+let chartType = 'expense';
+let chartLedgerFilter = 'all';
+let expandedChartCat = null;
+
+let settingsSelectedLedgerId = 'ledger-wallet';
+let editingLedgerId = null;
+let selectedSwatchColor = MUJI_SWATCHES[0];
+let assetConfigLedgerId = null;
+
+function initStore() {
+  try {
+    const savedLedgers = JSON.parse(localStorage.getItem(STORAGE_KEYS.LEDGERS));
+    const savedTxs = JSON.parse(localStorage.getItem(STORAGE_KEYS.TXS));
+    const savedTier2 = JSON.parse(localStorage.getItem(STORAGE_KEYS.TIER2));
+
+    if (Array.isArray(savedLedgers) && savedLedgers.length > 0 && Array.isArray(savedTxs)) {
+      ledgers = savedLedgers.map(l => ({
+        ...l,
+        includeInAssets: l.includeInAssets !== undefined ? l.includeInAssets : (l.id === 'ledger-wallet' || l.id === 'ledger-living')
+      }));
+      transactions = savedTxs;
+      tier2Map = (savedTier2 && typeof savedTier2 === 'object') ? savedTier2 : JSON.parse(JSON.stringify(DEFAULT_TIER2_MAP));
+    } else {
+      ledgers = JSON.parse(JSON.stringify(DEFAULT_LEDGERS));
+      transactions = [];
+      tier2Map = JSON.parse(JSON.stringify(DEFAULT_TIER2_MAP));
+      persistAll();
+    }
+  } catch (e) {
+    ledgers = JSON.parse(JSON.stringify(DEFAULT_LEDGERS));
+    transactions = [];
+    tier2Map = JSON.parse(JSON.stringify(DEFAULT_TIER2_MAP));
+    persistAll();
+  }
+  if (!ledgers.some(l => l.id === activeLedgerId)) {
+    activeLedgerId = ledgers[0].id;
+  }
+}
+
+function persistAll() {
+  try {
+    localStorage.setItem(STORAGE_KEYS.LEDGERS, JSON.stringify(ledgers));
+    localStorage.setItem(STORAGE_KEYS.TXS, JSON.stringify(transactions));
+    localStorage.setItem(STORAGE_KEYS.TIER2, JSON.stringify(tier2Map));
+  } catch (e) {}
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast-msg');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function mixWithWhite(hex, whiteRatio = 0.93) {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  const nr = Math.round(r * (1 - whiteRatio) + 255 * whiteRatio);
+  const ng = Math.round(g * (1 - whiteRatio) + 255 * whiteRatio);
+  const nb = Math.round(b * (1 - whiteRatio) + 255 * whiteRatio);
+  return `rgb(${nr}, ${ng}, ${nb})`;
+}
+
+function formatMoney(n) {
+  const sign = n < 0 ? '-' : '';
+  return sign + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
+}
+
+function getLedgerBalance(ledgerId) {
+  const l = ledgers.find(x => x.id === ledgerId);
+  if (!l) return 0;
+  let bal = Number(l.initialBalance) || 0;
+  for (let i = 0; i < transactions.length; i++) {
+    const t = transactions[i];
+    if (t.ledgerId === ledgerId) {
+      bal += t.type === 'income' ? Number(t.amount) : -Number(t.amount);
+    }
+  }
+  return bal;
+}
+
+function applyTheme() {
+  const active = ledgers.find(l => l.id === activeLedgerId) || ledgers[0];
+  const tint = mixWithWhite(active.color, 0.93);
+  document.documentElement.style.setProperty('--theme-accent', active.color);
+  document.documentElement.style.setProperty('--theme-tint', tint);
+  document.body.style.backgroundColor = tint;
+  document.getElementById('app').style.backgroundColor = tint;
+}
+
+function renderBottomNav() {
+  const listEl = document.getElementById('nav-ledger-list');
+  let html = `<div class="nav-add-ledger" onclick="openCreateLedgerSheet()">+ 新增</div>`;
+  ledgers.forEach(l => {
+    const isAct = (currentTab === 'ledger' && l.id === activeLedgerId);
+    const bg = isAct ? l.color : 'transparent';
+    html += `<div class="nav-ledger-pill ${isAct ? 'active' : ''}" 
+      style="background:${bg};" 
+      data-lid="${l.id}">${l.name}</div>`;
+  });
+  listEl.innerHTML = html;
+
+  // Bind click & long-press to ledger pills
+  listEl.querySelectorAll('.nav-ledger-pill').forEach(pill => {
+    const lid = pill.getAttribute('data-lid');
+    let pressTimer = null;
+    let moved = false;
+
+    const startPress = (e) => {
+      moved = false;
+      pressTimer = setTimeout(() => {
+        pressTimer = null;
+        openEditLedgerSheet(lid);
+      }, 480);
+    };
+    const movePress = () => {
+      moved = true;
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    };
+    const endPress = () => {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+        if (!moved) {
+          activeLedgerId = lid;
+          currentTab = 'ledger';
+          renderAll();
+        }
+      }
+    };
+
+    pill.addEventListener('touchstart', startPress, { passive: true });
+    pill.addEventListener('touchmove', movePress, { passive: true });
+    pill.addEventListener('touchend', endPress);
+    pill.addEventListener('mousedown', startPress);
+    pill.addEventListener('mousemove', movePress);
+    pill.addEventListener('mouseup', endPress);
+    pill.addEventListener('mouseleave', movePress);
+  });
+
+  ['accounts', 'charts', 'settings'].forEach(tab => {
+    const btn = document.getElementById('tab-' + tab);
+    if (btn) btn.classList.toggle('active', currentTab === tab);
+  });
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  renderAll();
+}
+
+function setLedgerSubMode(mode) {
+  ledgerSubMode = mode;
+  document.getElementById('btn-mode-cal').classList.toggle('active', mode === 'calendar');
+  document.getElementById('btn-mode-list').classList.toggle('active', mode === 'list');
+  renderMainContent();
+}
+
+function renderHeader() {
+  const titleEl = document.getElementById('header-title');
+  const subEl = document.getElementById('header-sub');
+  const dotEl = document.getElementById('header-dot');
+  const toggleEl = document.getElementById('ledger-view-toggle');
+
+  if (currentTab === 'ledger') {
+    const l = ledgers.find(x => x.id === activeLedgerId) || ledgers[0];
+    const bal = getLedgerBalance(l.id);
+    dotEl.style.display = 'inline-block';
+    dotEl.style.backgroundColor = l.color;
+    titleEl.textContent = l.name;
+    subEl.style.display = 'block';
+    subEl.innerHTML = `餘額 <span>${formatMoney(bal)}</span>`;
+    toggleEl.style.display = 'flex';
+  } else if (currentTab === 'accounts') {
+    dotEl.style.display = 'none';
+    titleEl.textContent = '帳戶總覽';
+    subEl.style.display = 'none';
+    toggleEl.style.display = 'none';
+  } else if (currentTab === 'charts') {
+    dotEl.style.display = 'none';
+    titleEl.textContent = '圖表分析';
+    subEl.style.display = 'none';
+    toggleEl.style.display = 'none';
+  } else if (currentTab === 'settings') {
+    dotEl.style.display = 'none';
+    titleEl.textContent = '系統設定';
+    subEl.style.display = 'none';
+    toggleEl.style.display = 'none';
+  }
+}
+
+function renderMainContent() {
+  const container = document.getElementById('main-content');
+  if (currentTab === 'ledger') {
+    if (ledgerSubMode === 'calendar') {
+      renderCalendarView(container);
+    } else {
+      renderListView(container);
+    }
+  } else if (currentTab === 'accounts') {
+    renderAccountsView(container);
+  } else if (currentTab === 'charts') {
+    renderChartsView(container);
+  } else if (currentTab === 'settings') {
+    renderSettingsView(container);
+  }
+}
+
+function changeCalMonth(delta) {
+  calMonth += delta;
+  if (calMonth > 12) { calMonth = 1; calYear++; }
+  if (calMonth < 1) { calMonth = 12; calYear--; }
+  renderMainContent();
+}
+
+function selectCalDate(dateStr) {
+  selectedDateStr = dateStr;
+  const parts = dateStr.split('-');
+  calYear = parseInt(parts[0], 10);
+  calMonth = parseInt(parts[1], 10);
+  renderMainContent();
+}
+
+function renderCalendarView(container) {
+  const l = ledgers.find(x => x.id === activeLedgerId) || ledgers[0];
+  const ledgerTxs = transactions.filter(t => t.ledgerId === l.id);
+
+  // Map date -> { hasExp, hasInc }
+  const dotMap = {};
+  ledgerTxs.forEach(t => {
+    if (!dotMap[t.date]) dotMap[t.date] = { exp: false, inc: false };
+    if (t.type === 'expense') dotMap[t.date].exp = true;
+    else dotMap[t.date].inc = true;
+  });
+
+  const firstDay = new Date(calYear, calMonth - 1, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+  const prevMonthDays = new Date(calYear, calMonth - 1, 0).getDate();
+
+  let cellsHtml = '';
+  // Prev month padding
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = prevMonthDays - i;
+    const pm = calMonth === 1 ? 12 : calMonth - 1;
+    const py = calMonth === 1 ? calYear - 1 : calYear;
+    const ds = `${py}-${String(pm).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    cellsHtml += `<div class="cal-cell other-month" onclick="selectCalDate('${ds}')"><span class="cal-day-num">${d}</span><div class="cal-dots"></div></div>`;
+  }
+
+  // Current month
+  const todayStr = getTodayDateStr();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${calYear}-${String(calMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const isSel = ds === selectedDateStr;
+    const isToday = ds === todayStr;
+    const info = dotMap[ds];
+    let dots = '';
+    if (info) {
+      if (info.exp) dots += `<span class="cal-dot exp"></span>`;
+      if (info.inc) dots += `<span class="cal-dot inc"></span>`;
+    }
+    cellsHtml += `<div class="cal-cell ${isSel ? 'selected' : ''} ${isToday ? 'is-today' : ''}" onclick="selectCalDate('${ds}')">
+      <span class="cal-day-num">${d}</span>
+      <div class="cal-dots">${dots}</div>
+    </div>`;
+  }
+
+  // Next month padding to complete 35 or 42 grid
+  const totalCells = firstDay + daysInMonth;
+  const targetCells = totalCells <= 35 ? 35 : 42;
+  const nextDays = targetCells - totalCells;
+  for (let d = 1; d <= nextDays; d++) {
+    const nm = calMonth === 12 ? 1 : calMonth + 1;
+    const ny = calMonth === 12 ? calYear + 1 : calYear;
+    const ds = `${ny}-${String(nm).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    cellsHtml += `<div class="cal-cell other-month" onclick="selectCalDate('${ds}')"><span class="cal-day-num">${d}</span><div class="cal-dots"></div></div>`;
+  }
+
+  const dayTxs = ledgerTxs.filter(t => t.date === selectedDateStr);
+  let dayExp = 0, dayInc = 0;
+  dayTxs.forEach(t => {
+    if (t.type === 'expense') dayExp += Number(t.amount);
+    else dayInc += Number(t.amount);
+  });
+
+  const selParts = selectedDateStr.split('-');
+  const selLabel = `${parseInt(selParts[1], 10)}月${parseInt(selParts[2], 10)}日 明細`;
+
+  let listHtml = '';
+  if (dayTxs.length === 0) {
+    listHtml = `<div class="empty-state">當日尚無紀錄 · 長按下方 <strong>+</strong> 號快速記帳</div>`;
+  } else {
+    listHtml = `<div class="tx-list">` + dayTxs.map(t => renderTxItemHtml(t, l.color)).join('') + `</div>`;
+  }
+
+  container.innerHTML = `
+    <div class="cal-card">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="changeCalMonth(-1)">‹</button>
+        <div class="cal-month-label">${calYear}年${calMonth}月</div>
+        <button class="cal-nav-btn" onclick="changeCalMonth(1)">›</button>
+      </div>
+      <div class="cal-weekdays">
+        <div>週日</div><div>週一</div><div>週二</div><div>週三</div><div>週四</div><div>週五</div><div>週六</div>
+      </div>
+      <div class="cal-grid">${cellsHtml}</div>
+    </div>
+    <div class="day-header-bar">
+      <span>${selLabel}</span>
+      <div class="day-header-totals">
+        ${dayInc > 0 ? `<span style="color:#5D8E66;">收入: ${dayInc.toLocaleString()}</span>` : ''}
+        <span>支出: ${dayExp.toLocaleString()}</span>
+      </div>
+    </div>
+    ${listHtml}
+  `;
+  bindSwipeDelete();
+}
+
+function renderListView(container) {
+  const l = ledgers.find(x => x.id === activeLedgerId) || ledgers[0];
+  const monthPrefix = `${calYear}-${String(calMonth).padStart(2, '0')}`;
+  const monthTxs = transactions
+    .filter(t => t.ledgerId === l.id && t.date.startsWith(monthPrefix))
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  let mExp = 0, mInc = 0;
+  monthTxs.forEach(t => {
+    if (t.type === 'expense') mExp += Number(t.amount);
+    else mInc += Number(t.amount);
+  });
+
+  const grouped = {};
+  monthTxs.forEach(t => {
+    if (!grouped[t.date]) grouped[t.date] = [];
+    grouped[t.date].push(t);
+  });
+
+  const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  let bodyHtml = '';
+  if (dates.length === 0) {
+    bodyHtml = `<div class="empty-state">本月尚無紀錄</div>`;
+  } else {
+    dates.forEach(d => {
+      const items = grouped[d];
+      const subExp = items.filter(x => x.type === 'expense').reduce((s, x) => s + Number(x.amount), 0);
+      bodyHtml += `
+        <div class="list-date-group">
+          <div class="list-date-label"><span>${d}</span><span>支出 $${subExp.toLocaleString()}</span></div>
+          <div class="tx-list">${items.map(t => renderTxItemHtml(t, l.color)).join('')}</div>
+        </div>
+      `;
+    });
+  }
+
+  container.innerHTML = `
+    <div class="cal-card" style="padding:12px 16px;">
+      <div class="cal-nav" style="padding-bottom:0;">
+        <button class="cal-nav-btn" onclick="changeCalMonth(-1)">‹</button>
+        <div style="text-align:center;">
+          <div class="cal-month-label">${calYear}年${calMonth}月</div>
+          <div style="font-size:11px;color:#8A8680;margin-top:2px;">支出 $${mExp.toLocaleString()} · 收入 $${mInc.toLocaleString()}</div>
+        </div>
+        <button class="cal-nav-btn" onclick="changeCalMonth(1)">›</button>
+      </div>
+    </div>
+    ${bodyHtml}
+  `;
+  bindSwipeDelete();
+}
+
+function renderTxItemHtml(t, accentColor) {
+  const shortCat = (t.category || '記帳').slice(0, 2);
+  const badgeBg = t.type === 'income' ? '#E4EFE6' : mixWithWhite(accentColor, 0.55);
+  const amtSign = t.type === 'income' ? '+' : '-';
+  return `
+    <div class="tx-swipe-wrap" data-txid="${t.id}">
+      <div class="tx-delete-bg" onclick="deleteTx('${t.id}')">刪除</div>
+      <div class="tx-card">
+        <div class="tx-left">
+          <div class="tx-cat-badge" style="background:${badgeBg};">${shortCat}</div>
+          <div class="tx-info">
+            <div class="tx-cat-name">${t.category}</div>
+            <div class="tx-note">${t.note || (t.type === 'income' ? '收入紀錄' : '一般支出')}</div>
+          </div>
+        </div>
+        <div class="tx-amount ${t.type === 'income' ? 'inc' : 'exp'}">${amtSign}$${Number(t.amount).toLocaleString()}</div>
+      </div>
+    </div>
+  `;
+}
+
+function bindSwipeDelete() {
+  document.querySelectorAll('.tx-swipe-wrap').forEach(wrap => {
+    const card = wrap.querySelector('.tx-card');
+    let startX = 0, currentX = 0, isSwiping = false;
+    card.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      isSwiping = true;
+      card.style.transition = 'none';
+    }, { passive: true });
+    card.addEventListener('touchmove', e => {
+      if (!isSwiping) return;
+      const dx = e.touches[0].clientX - startX;
+      if (dx < 0) {
+        currentX = Math.max(-76, dx);
+        card.style.transform = `translateX(${currentX}px)`;
+      } else {
+        currentX = 0;
+        card.style.transform = 'translateX(0px)';
+      }
+    }, { passive: true });
+    card.addEventListener('touchend', () => {
+      isSwiping = false;
+      card.style.transition = 'transform 0.16s ease-out';
+      if (currentX < -38) {
+        card.style.transform = 'translateX(-76px)';
+      } else {
+        card.style.transform = 'translateX(0px)';
+      }
+    });
+  });
+}
+
+function deleteTx(txId) {
+  transactions = transactions.filter(t => t.id !== txId);
+  persistAll();
+  renderAll();
+  showToast('已刪除紀錄');
+}
+
+/* ================= ACCOUNTS VIEW & LONG-PRESS ASSET TOGGLE ================= */
+function renderAccountsView(container) {
+  let posAssets = 0;
+  let negLiabilities = 0;
+
+  const cardsHtml = ledgers.map(l => {
+    const bal = getLedgerBalance(l.id);
+    const count = transactions.filter(t => t.ledgerId === l.id).length;
+    if (l.includeInAssets) {
+      if (bal >= 0) posAssets += bal;
+      else negLiabilities += bal;
+    }
+    const shortName = l.name.slice(0, 2);
+    return `
+      <div class="acc-card" data-accid="${l.id}">
+        <div class="acc-card-left">
+          <div class="acc-avatar" style="background:${l.color};">${shortName}</div>
+          <div>
+            <div class="acc-name-row">
+              <span class="acc-name">${l.name}</span>
+              ${!l.includeInAssets ? `<span class="acc-exclude-tag">不計入資產</span>` : ''}
+            </div>
+            <div class="acc-count">已載入 ${count.toLocaleString()} 筆明細</div>
+          </div>
+        </div>
+        <div class="acc-right">
+          <div>
+            <div class="acc-bal ${bal < 0 ? 'neg' : ''}">${formatMoney(bal)}</div>
+            <div style="font-size:11px;color:#8A8680;">點擊看明細</div>
+          </div>
+          <span style="color:#C2BEB8;font-size:18px;">›</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const netWorth = posAssets + negLiabilities;
+
+  container.innerHTML = `
+    <div class="net-worth-card">
+      <div class="nw-label">淨資產總計</div>
+      <div class="nw-value" style="color:${netWorth < 0 ? '#C76A6A' : '#2F2E2C'};">${formatMoney(netWorth)}</div>
+      <div class="nw-sub-grid">
+        <div class="nw-sub-item">
+          <span>納入正資產</span>
+          <strong style="color:#5D8E66;">${formatMoney(posAssets)}</strong>
+        </div>
+        <div class="nw-sub-item">
+          <span>納入負債 / 信用卡</span>
+          <strong style="color:#C76A6A;">${formatMoney(negLiabilities)}</strong>
+        </div>
+      </div>
+    </div>
+    ${cardsHtml}
+    <div class="acc-hint-banner">提示：長按任一帳戶可設定是否納入總資產計算</div>
+  `;
+
+  // Bind click (drilldown) & long-press (asset inclusion sheet)
+  container.querySelectorAll('.acc-card').forEach(card => {
+    const lid = card.getAttribute('data-accid');
+    let timer = null;
+    let moved = false;
+
+    const onStart = () => {
+      moved = false;
+      timer = setTimeout(() => {
+        timer = null;
+        openAssetSheet(lid);
+      }, 450);
+    };
+    const onMove = () => {
+      moved = true;
+      if (timer) { clearTimeout(timer); timer = null; }
+    };
+    const onEnd = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+        if (!moved) {
+          openAccountDrilldown(lid);
+        }
+      }
+    };
+
+    card.addEventListener('touchstart', onStart, { passive: true });
+    card.addEventListener('touchmove', onMove, { passive: true });
+    card.addEventListener('touchend', onEnd);
+    card.addEventListener('mousedown', onStart);
+    card.addEventListener('mousemove', onMove);
+    card.addEventListener('mouseup', onEnd);
+    card.addEventListener('mouseleave', onMove);
+  });
+}
+
+function openAssetSheet(lid) {
+  const l = ledgers.find(x => x.id === lid);
+  if (!l) return;
+  assetConfigLedgerId = lid;
+  document.getElementById('asset-sheet-title').textContent = `${l.name} · 資產計算設定`;
+  document.getElementById('asset-sheet-desc').textContent = `目前餘額為 ${formatMoney(getLedgerBalance(lid))}，請選擇是否計入頂部「淨資產總計」：`;
+  document.getElementById('asset-sheet').classList.add('open');
+}
+
+function closeAssetSheet() {
+  document.getElementById('asset-sheet').classList.remove('open');
+  assetConfigLedgerId = null;
+}
+
+function setAccountAssetInclusion(include) {
+  if (!assetConfigLedgerId) return;
+  const l = ledgers.find(x => x.id === assetConfigLedgerId);
+  if (l) {
+    l.includeInAssets = include;
+    persistAll();
+    renderMainContent();
+    showToast(include ? `已將「${l.name}」納入總資產` : `已設為不計入總資產`);
+  }
+  closeAssetSheet();
+}
+
+/* ================= 3-TIER ACCOUNT DRILLDOWN ================= */
+let ddState = { level: 2, ledgerId: null, ym: null };
+
+function openAccountDrilldown(lid) {
+  ddState = { level: 2, ledgerId: lid, ym: null };
+  document.getElementById('drilldown-modal').classList.add('open');
+  renderDrilldown();
+}
+
+function drilldownBack() {
+  if (ddState.level === 3) {
+    ddState.level = 2;
+    ddState.ym = null;
+    renderDrilldown();
+  } else {
+    document.getElementById('drilldown-modal').classList.remove('open');
+  }
+}
+
+function renderDrilldown() {
+  const l = ledgers.find(x => x.id === ddState.ledgerId);
+  if (!l) return;
+  const titleEl = document.getElementById('dd-title');
+  const contentEl = document.getElementById('dd-content');
+
+  // Sort all txs chronologically ascending to compute running balance
+  const allTxs = transactions
+    .filter(t => t.ledgerId === l.id)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+
+  let running = Number(l.initialBalance) || 0;
+  const withBal = allTxs.map(t => {
+    running += t.type === 'income' ? Number(t.amount) : -Number(t.amount);
+    return { ...t, balanceAfter: running };
+  });
+
+  if (ddState.level === 2) {
+    titleEl.textContent = `${l.name} · 月份總覽`;
+    const monthMap = {};
+    withBal.forEach(t => {
+      const ym = t.date.slice(0, 7);
+      if (!monthMap[ym]) monthMap[ym] = { ym, inc: 0, exp: 0, endBal: t.balanceAfter, count: 0 };
+      if (t.type === 'income') monthMap[ym].inc += Number(t.amount);
+      else monthMap[ym].exp += Number(t.amount);
+      monthMap[ym].endBal = t.balanceAfter;
+      monthMap[ym].count++;
+    });
+
+    const months = Object.keys(monthMap).sort((a, b) => b.localeCompare(a));
+    if (months.length === 0) {
+      contentEl.innerHTML = `<div class="empty-state">尚無歷史月份資料</div>`;
+      return;
+    }
+    contentEl.innerHTML = months.map(ym => {
+      const m = monthMap[ym];
+      return `
+        <div class="dd-row" onclick="ddState.level=3;ddState.ym='${ym}';renderDrilldown();">
+          <div>
+            <div style="font-size:15px;font-weight:700;">${ym.replace('-', '年')}月</div>
+            <div style="font-size:11px;color:#8A8680;margin-top:2px;">收 +$${m.inc.toLocaleString()} · 支 -$${m.exp.toLocaleString()}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:15px;font-weight:800;">${formatMoney(m.endBal)}</div>
+            <div style="font-size:11px;color:#8A8680;">月末餘額 ›</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else if (ddState.level === 3) {
+    titleEl.textContent = `${l.name} · ${ddState.ym.replace('-', '年')}月`;
+    const mItems = withBal.filter(t => t.date.startsWith(ddState.ym)).reverse();
+    contentEl.innerHTML = mItems.map(t => `
+      <div class="dd-row" style="cursor:default;">
+        <div>
+          <div style="font-size:14px;font-weight:700;">${t.category} <span style="font-weight:500;color:#8A8680;font-size:12px;">${t.note}</span></div>
+          <div style="font-size:11px;color:#8A8680;margin-top:2px;">${t.date}</div>
+        </div>
+        <div style="text-align:right;font-variant-numeric:tabular-nums;">
+          <div style="font-size:15px;font-weight:700;color:${t.type === 'income' ? '#5D8E66' : '#2F2E2C'};">
+            ${t.type === 'income' ? '+' : '-'}$${Number(t.amount).toLocaleString()}
+          </div>
+          <div style="font-size:11px;color:#8A8680;">餘額 ${formatMoney(t.balanceAfter)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+/* ================= CHARTS VIEW ================= */
+const CHART_PALETTE = ['#D8A3A3', '#93B599', '#A8B5C8', '#DFC6A2', '#C5B4CC', '#9EC4C1', '#D4B499', '#B5C2A3'];
+
+function changeChartMonth(delta) {
+  chartMonth += delta;
+  if (chartMonth > 12) { chartMonth = 1; chartYear++; }
+  if (chartMonth < 1) { chartMonth = 12; chartYear--; }
+  expandedChartCat = null;
+  renderMainContent();
+}
+
+function renderChartsView(container) {
+  const ymPrefix = `${chartYear}-${String(chartMonth).padStart(2, '0')}`;
+  const filtered = transactions.filter(t => {
+    if (!t.date.startsWith(ymPrefix)) return false;
+    if (t.type !== chartType) return false;
+    if (chartLedgerFilter !== 'all' && t.ledgerId !== chartLedgerFilter) return false;
+    return true;
+  });
+
+  const catTotals = {};
+  let grandTotal = 0;
+  filtered.forEach(t => {
+    const c = t.category || '其他';
+    if (!catTotals[c]) catTotals[c] = { name: c, total: 0, items: [] };
+    catTotals[c].total += Number(t.amount);
+    catTotals[c].items.push(t);
+    grandTotal += Number(t.amount);
+  });
+
+  const sortedCats = Object.values(catTotals).sort((a, b) => b.total - a.total);
+
+  // Build SVG Donut (cx=118, cy=118, r=94, stroke-width=20 => inner radius = 84, diameter = 168px)
+  const r = 94;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  let svgCircles = '';
+
+  if (grandTotal === 0) {
+    svgCircles = `<circle cx="118" cy="118" r="${r}" fill="none" stroke="#EAE6DF" stroke-width="20" />`;
+  } else {
+    sortedCats.forEach((c, idx) => {
+      const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+      const frac = c.total / grandTotal;
+      const dash = frac * circ;
+      const isSelected = expandedChartCat === c.name;
+      svgCircles += `<circle cx="118" cy="118" r="${r}" fill="none" stroke="${color}" 
+        stroke-width="${isSelected ? 24 : 20}" 
+        stroke-dasharray="${dash} ${circ - dash}" 
+        stroke-dashoffset="${-offset}"
+        transform="rotate(-90 118 118)"
+        style="cursor:pointer;transition:stroke-width 0.15s ease;"
+        onclick="toggleChartCat('${c.name}')" />`;
+      offset += dash;
+    });
+  }
+
+  const filterChips = `<button class="chip-btn ${chartLedgerFilter === 'all' ? 'active' : ''}" onclick="chartLedgerFilter='all';expandedChartCat=null;renderMainContent();">全部帳本</button>` +
+    ledgers.map(l => `<button class="chip-btn ${chartLedgerFilter === l.id ? 'active' : ''}" onclick="chartLedgerFilter='${l.id}';expandedChartCat=null;renderMainContent();">${l.name}</button>`).join('');
+
+  const activeFilterName = chartLedgerFilter === 'all' ? '全部帳本' : (ledgers.find(x => x.id === chartLedgerFilter)?.name || '');
+  const centerSub = `${chartYear}年${chartMonth}月`;
+  const centerTitle = `${activeFilterName}${chartType === 'expense' ? '總支出' : '總收入'}`;
+
+  let catListHtml = '';
+  if (sortedCats.length === 0) {
+    catListHtml = `<div class="empty-state">此月份尚無${chartType === 'expense' ? '支出' : '收入'}紀錄</div>`;
+  } else {
+    catListHtml = sortedCats.map((c, idx) => {
+      const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+      const pct = Math.round((c.total / grandTotal) * 100);
+      const isOpen = expandedChartCat === c.name;
+      let detailsHtml = '';
+      if (isOpen) {
+        detailsHtml = `<div class="chart-cat-details">` + c.items
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .map(it => {
+            const lname = ledgers.find(x => x.id === it.ledgerId)?.name || '';
+            return `<div class="chart-detail-item">
+              <span>${it.date.slice(5)} · <strong style="color:#2F2E2C;">${lname}</strong> ${it.note || ''}</span>
+              <strong>$${Number(it.amount).toLocaleString()}</strong>
+            </div>`;
+          }).join('') + `</div>`;
+      }
+      return `
+        <div class="chart-cat-card">
+          <div class="chart-cat-row" onclick="toggleChartCat('${c.name}')">
+            <div class="chart-cat-left">
+              <span class="chart-cat-dot" style="background:${color};"></span>
+              <span>${c.name}</span>
+            </div>
+            <div class="chart-cat-right">
+              <span class="chart-cat-amt">$${c.total.toLocaleString()}</span>
+              <span class="chart-cat-pct">${pct}%</span>
+            </div>
+          </div>
+          ${detailsHtml}
+        </div>
+      `;
+    }).join('');
+  }
+
+  container.innerHTML = `
+    <div class="chart-filter-bar">
+      <div class="chart-top-controls">
+        <button class="cal-nav-btn" onclick="changeChartMonth(-1)">‹</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:15px;font-weight:700;">${chartYear}年${chartMonth}月</span>
+          <div class="view-pill-toggle">
+            <button class="view-pill-btn ${chartType === 'expense' ? 'active' : ''}" onclick="chartType='expense';expandedChartCat=null;renderMainContent();" style="padding:4px 10px;font-size:12px;">支出</button>
+            <button class="view-pill-btn ${chartType === 'income' ? 'active' : ''}" onclick="chartType='income';expandedChartCat=null;renderMainContent();" style="padding:4px 10px;font-size:12px;">收入</button>
+          </div>
+        </div>
+        <button class="cal-nav-btn" onclick="changeChartMonth(1)">›</button>
+      </div>
+      <div class="chart-ledger-chips">${filterChips}</div>
+    </div>
+
+    <div class="donut-card">
+      <div class="donut-wrap">
+        <svg width="236" height="236" viewBox="0 0 236 236">${svgCircles}</svg>
+        <div class="donut-center">
+          <div class="donut-center-sub">${centerSub}</div>
+          <div class="donut-center-label">${centerTitle}</div>
+          <div class="donut-center-val">$${grandTotal.toLocaleString()}</div>
+        </div>
+      </div>
+    </div>
+    ${catListHtml}
+  `;
+}
+
+function toggleChartCat(catName) {
+  expandedChartCat = expandedChartCat === catName ? null : catName;
+  renderMainContent();
+}
+
+/* ================= SETTINGS VIEW WITH DRAG & DROP REORDERING ================= */
+function renderSettingsView(container) {
+  if (!ledgers.some(l => l.id === settingsSelectedLedgerId)) {
+    settingsSelectedLedgerId = ledgers[0].id;
+  }
+  const selLedger = ledgers.find(l => l.id === settingsSelectedLedgerId);
+  const subCats = tier2Map[settingsSelectedLedgerId] || [];
+
+  const ledgerPills = ledgers.map((l, idx) => `
+    <div class="drag-pill ${l.id === settingsSelectedLedgerId ? 'active' : ''}" 
+      data-drag-type="ledger" data-index="${idx}" data-lid="${l.id}">
+      <span>☰ ${l.name}</span>
+    </div>
+  `).join('');
+
+  const subCatPills = subCats.map((cat, idx) => `
+    <div class="drag-pill" data-drag-type="subcat" data-index="${idx}">
+      <span>${cat}</span>
+      <span class="pill-del-x" onclick="event.stopPropagation();removeTier2Cat(${idx})">×</span>
+    </div>
+  `).join('');
+
+  const isCredit = selLedger && selLedger.name.includes('信用卡');
+
+  container.innerHTML = `
+    <div class="settings-card">
+      <h3 class="settings-title">扇形第二階分類與排序設定</h3>
+      <p class="settings-desc">按住標籤拖曳可自由調整顯示順序（下方導覽列與扇形輪盤會同步更新）；輕點帳本可編輯其第二階分類。</p>
+      
+      <div style="font-size:12px;font-weight:700;color:#8A8680;margin-bottom:6px;">第一階帳本順序（可拖曳）：</div>
+      <div class="pill-drag-row" id="drag-ledgers-row">${ledgerPills}</div>
+
+      <div style="font-size:12px;font-weight:700;color:#8A8680;margin:12px 0 6px 0;">
+        「${selLedger.name}」第二階細項（可拖曳${!isCredit ? ' · 自動附帶轉帳' : ''}）：
+      </div>
+      <div class="pill-drag-row" id="drag-subcats-row">${subCatPills}</div>
+
+      <div class="add-cat-row">
+        <input type="text" class="muji-input" id="new-tier2-input" placeholder="輸入新分類（例如：咖啡、停車...）">
+        <button class="muji-btn" onclick="addTier2Cat()">+ 新增</button>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <h3 class="settings-title">CSV 匯入、備份與資料管理</h3>
+      <p class="settings-desc">所有記帳資料僅儲存在本機瀏覽器。支援匯入「天天記帳」或本 App 備份的 CSV 檔案，並可隨時匯出備份。</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="handleCsvUpload(event)">
+        <button class="muji-btn" onclick="document.getElementById('csv-file-input').click()">匯入 CSV 紀錄檔案</button>
+        <button class="muji-btn secondary" onclick="exportCurrentCsv()">匯出目前紀錄 CSV 備份</button>
+        <button class="muji-btn danger" onclick="clearAllData()">清除所有紀錄（重設為空白帳本）</button>
+      </div>
+    </div>
+  `;
+
+  bindDragReorder('drag-ledgers-row', 'ledger');
+  bindDragReorder('drag-subcats-row', 'subcat');
+}
+
+function bindDragReorder(containerId, type) {
+  const row = document.getElementById(containerId);
+  if (!row) return;
+  let dragIdx = null;
+  let startX = 0, startY = 0, hasDragged = false;
+
+  row.querySelectorAll('.drag-pill').forEach(pill => {
+    const idx = parseInt(pill.getAttribute('data-index'), 10);
+
+    const onDown = (e) => {
+      if (e.target.classList.contains('pill-del-x')) return;
+      const pt = e.touches ? e.touches[0] : e;
+      startX = pt.clientX;
+      startY = pt.clientY;
+      dragIdx = idx;
+      hasDragged = false;
+    };
+
+    const onMove = (e) => {
+      if (dragIdx === null) return;
+      const pt = e.touches ? e.touches[0] : e;
+      if (!hasDragged && (Math.abs(pt.clientX - startX) > 10 || Math.abs(pt.clientY - startY) > 10)) {
+        hasDragged = true;
+        pill.classList.add('dragging');
+      }
+      if (hasDragged) {
+        if (e.cancelable) e.preventDefault();
+        const targetEl = document.elementFromPoint(pt.clientX, pt.clientY);
+        const overPill = targetEl ? targetEl.closest('.drag-pill') : null;
+        if (overPill && overPill.parentElement === row) {
+          const overIdx = parseInt(overPill.getAttribute('data-index'), 10);
+          if (!isNaN(overIdx) && overIdx !== dragIdx) {
+            if (type === 'ledger') {
+              const movedItem = ledgers.splice(dragIdx, 1)[0];
+              ledgers.splice(overIdx, 0, movedItem);
+            } else {
+              const arr = tier2Map[settingsSelectedLedgerId] || [];
+              const movedItem = arr.splice(dragIdx, 1)[0];
+              arr.splice(overIdx, 0, movedItem);
+              tier2Map[settingsSelectedLedgerId] = arr;
+            }
+            dragIdx = overIdx;
+            persistAll();
+            renderBottomNav();
+            renderSettingsView(document.getElementById('main-content'));
+          }
+        }
+      }
+    };
+
+    const onUp = () => {
+      if (dragIdx === null) return;
+      pill.classList.remove('dragging');
+      if (!hasDragged && type === 'ledger') {
+        settingsSelectedLedgerId = pill.getAttribute('data-lid');
+        renderSettingsView(document.getElementById('main-content'));
+      }
+      dragIdx = null;
+      hasDragged = false;
+    };
+
+    pill.addEventListener('touchstart', onDown, { passive: true });
+    pill.addEventListener('touchmove', onMove, { passive: false });
+    pill.addEventListener('touchend', onUp);
+    pill.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  });
+}
+
+function addTier2Cat() {
+  const inp = document.getElementById('new-tier2-input');
+  const val = inp.value.trim();
+  if (!val) return;
+  if (!tier2Map[settingsSelectedLedgerId]) tier2Map[settingsSelectedLedgerId] = [];
+  if (!tier2Map[settingsSelectedLedgerId].includes(val)) {
+    tier2Map[settingsSelectedLedgerId].push(val);
+    persistAll();
+    renderSettingsView(document.getElementById('main-content'));
+    showToast(`已新增「${val}」`);
+  }
+}
+
+function removeTier2Cat(idx) {
+  const arr = tier2Map[settingsSelectedLedgerId] || [];
+  arr.splice(idx, 1);
+  tier2Map[settingsSelectedLedgerId] = arr;
+  persistAll();
+  renderSettingsView(document.getElementById('main-content'));
+}
+
+function clearAllData() {
+  if (!confirm('確定要清除所有記帳紀錄並重設為空白帳本嗎？建議先匯出 CSV 備份。')) return;
+  ledgers = JSON.parse(JSON.stringify(DEFAULT_LEDGERS));
+  transactions = [];
+  tier2Map = JSON.parse(JSON.stringify(DEFAULT_TIER2_MAP));
+  activeLedgerId = 'ledger-wallet';
+  persistAll();
+  renderAll();
+  showToast('已清除所有紀錄');
+}
+
+function parseCSV(text) {
+  const cleanText = text.replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < cleanText.length; i++) {
+    const ch = cleanText[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (cleanText[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        row.push(field);
+        field = '';
+      } else if (ch === '\r') {
+        continue;
+      } else if (ch === '\n') {
+        row.push(field);
+        rows.push(row);
+        row = [];
+        field = '';
+      } else {
+        field += ch;
+      }
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function exportCurrentCsv() {
+  if (transactions.length === 0) {
+    showToast('目前尚無紀錄可匯出');
+    return;
+  }
+  const ledgerToAccName = {};
+  ledgers.forEach(l => {
+    if (l.id === 'ledger-wallet') ledgerToAccName[l.id] = '現金';
+    else if (l.id === 'ledger-credit') ledgerToAccName[l.id] = '國泰信用卡';
+    else ledgerToAccName[l.id] = l.name;
+  });
+
+  const esc = (v) => {
+    const s = String(v == null ? '' : v).replace(/[\r\n]+/g, ' ');
+    return (s.includes(',') || s.includes('"')) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+
+  const header = ['日期', '類別', '大類別', '金額', '幣別', '成員', '帳戶', '標籤', '備註', '收支區分', '上次更新', 'UUID'];
+  const lines = [header.join(',')];
+
+  const sorted = transactions.slice().sort((a, b) => b.date.localeCompare(a.date));
+  sorted.forEach(t => {
+    const dNum = (t.date || '').replace(/-/g, '');
+    const accName = ledgerToAccName[t.ledgerId] || '現金';
+    const dir = t.type === 'income' ? '收' : '支';
+    lines.push([
+      esc(dNum),
+      esc(t.category || '其他'),
+      '',
+      esc(t.amount),
+      'TWD',
+      '自己',
+      esc(accName),
+      '',
+      esc(t.note || ''),
+      dir,
+      '',
+      esc(t.id)
+    ].join(','));
+  });
+
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `極簡記帳備份_${getTodayDateStr().replace(/-/g, '')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`已匯出 ${transactions.length} 筆紀錄`);
+}
+
+function handleCsvUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const text = evt.target.result;
+    const rows = parseCSV(text);
+    const mapAcc = {
+      '現金': 'ledger-wallet',
+      '錢包': 'ledger-wallet',
+      '生活費': 'ledger-living',
+      '金庫': 'ledger-vault',
+      '國泰信用卡': 'ledger-credit',
+      '信用卡': 'ledger-credit'
+    };
+    ledgers.forEach(l => {
+      if (!mapAcc[l.name]) mapAcc[l.name] = l.id;
+    });
+
+    const existingIds = new Set(transactions.map(t => t.id));
+    let added = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const cols = rows[i];
+      if (!cols || cols.length < 10) continue;
+      const rawDate = (cols[0] || '').trim();
+      const cat = (cols[1] || '').trim();
+      const amt = parseFloat(cols[3]);
+      const acc = (cols[6] || '').trim();
+      const note = (cols[8] || '').trim();
+      const dir = (cols[9] || '').trim();
+      const uuid = (cols[11] || '').trim() || ('csv_' + i + '_' + rawDate + '_' + amt);
+      const lid = mapAcc[acc];
+      if (!lid || isNaN(amt)) continue;
+      if (existingIds.has(uuid)) continue;
+      const dateFmt = rawDate.length === 8 ? `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}` : rawDate;
+      transactions.unshift({
+        id: uuid,
+        ledgerId: lid,
+        type: dir === '收' ? 'income' : 'expense',
+        category: cat || '其他',
+        amount: amt,
+        date: dateFmt,
+        note
+      });
+      existingIds.add(uuid);
+      added++;
+    }
+    e.target.value = '';
+    persistAll();
+    renderAll();
+    showToast(`成功匯入 ${added} 筆新紀錄`);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+/* ================= LEDGER CREATE / EDIT / DELETE ================= */
+function openCreateLedgerSheet() {
+  editingLedgerId = null;
+  document.getElementById('ledger-sheet-title').textContent = '新增帳本';
+  document.getElementById('edit-ledger-name').value = '';
+  document.getElementById('edit-ledger-bal').value = '0';
+  selectedSwatchColor = MUJI_SWATCHES[2];
+  document.getElementById('btn-delete-ledger').style.display = 'none';
+  renderSwatchPicker();
+  document.getElementById('ledger-sheet').classList.add('open');
+}
+
+function openEditLedgerSheet(lid) {
+  const l = ledgers.find(x => x.id === lid);
+  if (!l) return;
+  editingLedgerId = lid;
+  document.getElementById('ledger-sheet-title').textContent = '設定帳本';
+  document.getElementById('edit-ledger-name').value = l.name;
+  document.getElementById('edit-ledger-bal').value = getLedgerBalance(lid);
+  selectedSwatchColor = l.color;
+  document.getElementById('btn-delete-ledger').style.display = ledgers.length > 1 ? 'block' : 'none';
+  renderSwatchPicker();
+  document.getElementById('ledger-sheet').classList.add('open');
+}
+
+function closeLedgerSheet() {
+  document.getElementById('ledger-sheet').classList.remove('open');
+}
+
+function renderSwatchPicker() {
+  const box = document.getElementById('edit-ledger-colors');
+  box.innerHTML = MUJI_SWATCHES.map(c => `
+    <div class="color-swatch ${c === selectedSwatchColor ? 'selected' : ''}" 
+      style="background:${c};" onclick="selectedSwatchColor='${c}';renderSwatchPicker();"></div>
+  `).join('');
+}
+
+function saveEditingLedger() {
+  const name = document.getElementById('edit-ledger-name').value.trim();
+  const targetBal = parseFloat(document.getElementById('edit-ledger-bal').value) || 0;
+  if (!name) { showToast('請輸入帳本名稱'); return; }
+
+  if (editingLedgerId) {
+    const l = ledgers.find(x => x.id === editingLedgerId);
+    if (l) {
+      const currentBal = getLedgerBalance(editingLedgerId);
+      const diff = targetBal - currentBal;
+      l.name = name;
+      l.color = selectedSwatchColor;
+      l.initialBalance = (Number(l.initialBalance) || 0) + diff;
+    }
+  } else {
+    const newId = 'ledger_' + Date.now();
+    ledgers.push({
+      id: newId,
+      name,
+      color: selectedSwatchColor,
+      initialBalance: targetBal,
+      includeInAssets: true
+    });
+    tier2Map[newId] = ['飲食', '日常', '其他'];
+    activeLedgerId = newId;
+  }
+  persistAll();
+  closeLedgerSheet();
+  renderAll();
+  showToast('帳本設定已儲存');
+}
+
+function deleteEditingLedger() {
+  if (!editingLedgerId || ledgers.length <= 1) return;
+  ledgers = ledgers.filter(l => l.id !== editingLedgerId);
+  if (activeLedgerId === editingLedgerId) activeLedgerId = ledgers[0].id;
+  persistAll();
+  closeLedgerSheet();
+  renderAll();
+  showToast('已刪除帳本');
+}
+
+/* ================= RADIAL MARKING MENU (ZERO-LAG SVG) ================= */
+const fabBtn = document.getElementById('fab-plus');
+const radialOverlay = document.getElementById('radial-overlay');
+const radialSvg = document.getElementById('radial-svg');
+
+let radialOpen = false;
+let radialMode = 'expense'; // 'expense' | 'income'
+let hoveredTier1Idx = -1;
+let hoveredTier2Cat = null;
+let swipeToggleLocked = false;
+let pressOrigin = { x: 0, y: 0 };
+
+const R_INNER = 60;
+const R_T1_OUTER = 136;
+const R_T2_OUTER = 224;
+const ARCH_GRAY = '#DCD9D4';
+
+function polarToCartesian(r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return {
+    x: r * Math.cos(rad),
+    y: -r * Math.sin(rad)
+  };
+}
+
+function createWedgePath(rIn, rOut, startDeg, endDeg) {
+  const p1 = polarToCartesian(rOut, startDeg);
+  const p2 = polarToCartesian(rOut, endDeg);
+  const p3 = polarToCartesian(rIn, endDeg);
+  const p4 = polarToCartesian(rIn, startDeg);
+  const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+  return `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} A ${rOut} ${rOut} 0 ${largeArc} 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)} L ${p3.x.toFixed(1)} ${p3.y.toFixed(1)} A ${rIn} ${rIn} 0 ${largeArc} 0 ${p4.x.toFixed(1)} ${p4.y.toFixed(1)} Z`;
+}
+
+function updateRadialModeBanner() {
+  const dot = document.getElementById('radial-mode-dot');
+  const txt = document.getElementById('radial-mode-text');
+  if (radialMode === 'expense') {
+    dot.style.backgroundColor = '#D8A3A3';
+    txt.textContent = '模式：支出（加號區下滑切換收入）';
+  } else {
+    dot.style.backgroundColor = '#93B599';
+    txt.textContent = '模式：收入（加號區下滑切換支出）';
+  }
+}
+
+function renderRadialWheel() {
+  const n = ledgers.length;
+  const span = 180 / n;
+  let svgHtml = '';
+
+  // Tier 1: All ledgers (180 deg down to 0 deg, left to right)
+  for (let i = 0; i < n; i++) {
+    const startDeg = 180 - i * span;
+    const endDeg = 180 - (i + 1) * span;
+    const midDeg = (startDeg + endDeg) / 2;
+    const isHov = hoveredTier1Idx === i;
+    const fill = isHov ? ledgers[i].color : ARCH_GRAY;
+    const d = createWedgePath(R_INNER, R_T1_OUTER, startDeg, endDeg);
+    const labelPos = polarToCartesian((R_INNER + R_T1_OUTER) / 2, midDeg);
+    svgHtml += `<path class="wedge-path" d="${d}" fill="${fill}"/>`;
+    svgHtml += `<text class="wedge-label" x="${labelPos.x.toFixed(1)}" y="${labelPos.y.toFixed(1)}">${ledgers[i].name}</text>`;
+  }
+
+  // Tier 2: Only shown when hoveredTier1Idx >= 0
+  if (hoveredTier1Idx >= 0 && ledgers[hoveredTier1Idx]) {
+    const selL = ledgers[hoveredTier1Idx];
+    const baseCats = tier2Map[selL.id] || ['一般'];
+    const isCredit = selL.name.includes('信用卡');
+    const t2Items = isCredit ? [...baseCats] : [...baseCats, '轉帳'];
+    const m = t2Items.length;
+    const t2Span = 180 / m;
+
+    for (let j = 0; j < m; j++) {
+      const sDeg = 180 - j * t2Span;
+      const eDeg = 180 - (j + 1) * t2Span;
+      const mDeg = (sDeg + eDeg) / 2;
+      const catName = t2Items[j];
+      const isCatHov = hoveredTier2Cat === catName;
+      const fill = isCatHov ? selL.color : '#E7E4DF';
+      const d = createWedgePath(R_T1_OUTER, R_T2_OUTER, sDeg, eDeg);
+      const pos = polarToCartesian((R_T1_OUTER + R_T2_OUTER) / 2, mDeg);
+      svgHtml += `<path class="wedge-path" d="${d}" fill="${fill}"/>`;
+      svgHtml += `<text class="wedge-label" x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}">${catName}</text>`;
+    }
+  }
+
+  radialSvg.innerHTML = svgHtml;
+}
+
+function openRadialMenu(clientX, clientY) {
+  radialOpen = true;
+  radialMode = 'expense';
+  hoveredTier1Idx = -1;
+  hoveredTier2Cat = null;
+  swipeToggleLocked = false;
+  pressOrigin = { x: clientX, y: clientY };
+  fabBtn.classList.add('active-mode');
+  radialOverlay.classList.add('open');
+  updateRadialModeBanner();
+  renderRadialWheel();
+}
+
+function handleRadialMove(clientX, clientY) {
+  if (!radialOpen) return;
+  const rect = fabBtn.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  const dx = clientX - cx;
+  const dy = cy - clientY; // positive = upwards
+  const dist = Math.hypot(dx, dy);
+
+  // Check downward swipe ONLY inside core + button zone
+  if (dist < R_INNER) {
+    if (clientY - pressOrigin.y > 24 && !swipeToggleLocked) {
+      radialMode = radialMode === 'expense' ? 'income' : 'expense';
+      swipeToggleLocked = true;
+      pressOrigin.y = clientY;
+      updateRadialModeBanner();
+    }
+    if (hoveredTier1Idx !== -1 || hoveredTier2Cat !== null) {
+      hoveredTier1Idx = -1;
+      hoveredTier2Cat = null;
+      renderRadialWheel();
+    }
+    return;
+  }
+
+  // Angle from 0 (right) to 180 (left)
+  let deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+  if (deg < 0) {
+    // Slightly below horizontal tolerance
+    if (deg > -25) deg = 0;
+    else if (deg < -155) deg = 180;
+    else {
+      if (hoveredTier1Idx !== -1 || hoveredTier2Cat !== null) {
+        hoveredTier1Idx = -1;
+        hoveredTier2Cat = null;
+        renderRadialWheel();
+      }
+      return;
+    }
+  }
+
+  const n = ledgers.length;
+  const t1Span = 180 / n;
+
+  if (dist >= R_INNER && dist < R_T1_OUTER) {
+    const idx = Math.min(n - 1, Math.max(0, Math.floor((180 - deg) / t1Span)));
+    if (hoveredTier1Idx !== idx || hoveredTier2Cat !== null) {
+      hoveredTier1Idx = idx;
+      hoveredTier2Cat = null;
+      renderRadialWheel();
+    }
+  } else if (dist >= R_T1_OUTER && dist <= R_T2_OUTER + 36 && hoveredTier1Idx >= 0) {
+    const selL = ledgers[hoveredTier1Idx];
+    const baseCats = tier2Map[selL.id] || ['一般'];
+    const isCredit = selL.name.includes('信用卡');
+    const t2Items = isCredit ? [...baseCats] : [...baseCats, '轉帳'];
+    const m = t2Items.length;
+    const t2Span = 180 / m;
+    const j = Math.min(m - 1, Math.max(0, Math.floor((180 - deg) / t2Span)));
+    const catName = t2Items[j];
+    if (hoveredTier2Cat !== catName) {
+      hoveredTier2Cat = catName;
+      renderRadialWheel();
+    }
+  } else {
+    if (hoveredTier2Cat !== null) {
+      hoveredTier2Cat = null;
+      renderRadialWheel();
+    }
+  }
+}
+
+function closeRadialMenu() {
+  if (!radialOpen) return;
+  const chosenLedger = hoveredTier1Idx >= 0 ? ledgers[hoveredTier1Idx] : null;
+  const chosenCat = hoveredTier2Cat;
+
+  radialOpen = false;
+  fabBtn.classList.remove('active-mode');
+  radialOverlay.classList.remove('open');
+
+  // Release-to-cancel unless a Tier-2 leaf wedge was selected
+  if (chosenLedger && chosenCat) {
+    openKeypad(chosenLedger, chosenCat, radialMode);
+  }
+}
+
+let fabLongTimer = null;
+fabBtn.addEventListener('touchstart', e => {
+  const pt = e.touches[0];
+  fabLongTimer = setTimeout(() => {
+    fabLongTimer = null;
+    openRadialMenu(pt.clientX, pt.clientY);
+  }, 160);
+}, { passive: true });
+
+fabBtn.addEventListener('touchmove', e => {
+  const pt = e.touches[0];
+  if (fabLongTimer) {
+    clearTimeout(fabLongTimer);
+    fabLongTimer = null;
+    openRadialMenu(pt.clientX, pt.clientY);
+  }
+  handleRadialMove(pt.clientX, pt.clientY);
+}, { passive: true });
+
+fabBtn.addEventListener('touchend', () => {
+  if (fabLongTimer) {
+    clearTimeout(fabLongTimer);
+    fabLongTimer = null;
+    // Quick tap opens radial menu or can stay quick-open
+    openRadialMenu(0, 0);
+    setTimeout(() => closeRadialMenu(), 10);
+  } else {
+    closeRadialMenu();
+  }
+});
+
+// Mouse support for desktop testing
+fabBtn.addEventListener('mousedown', e => {
+  openRadialMenu(e.clientX, e.clientY);
+});
+window.addEventListener('mousemove', e => {
+  if (radialOpen) handleRadialMove(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', () => {
+  if (radialOpen) closeRadialMenu();
+});
+
+/* ================= KEYPAD INPUT MODAL ================= */
+let kpState = { ledgerId: null, category: '', type: 'expense', amountStr: '0', targetLedgerId: null };
+
+function openKeypad(ledgerObj, category, type) {
+  const isTransfer = category === '轉帳';
+  const otherLedgers = ledgers.filter(l => l.id !== ledgerObj.id);
+  kpState = {
+    ledgerId: ledgerObj.id,
+    category,
+    type: isTransfer ? 'expense' : type,
+    amountStr: '0',
+    targetLedgerId: isTransfer && otherLedgers.length > 0 ? otherLedgers[0].id : null
+  };
+
+  document.getElementById('kp-ledger-pill').textContent = ledgerObj.name;
+  document.getElementById('kp-ledger-pill').style.backgroundColor = ledgerObj.color;
+  document.getElementById('kp-cat-pill').textContent = category;
+  document.getElementById('kp-type-label').textContent = isTransfer ? '轉出金額' : (type === 'income' ? '收入金額' : '支出金額');
+  document.getElementById('kp-date-input').value = selectedDateStr;
+  document.getElementById('kp-note-input').value = '';
+  document.getElementById('kp-amount-val').textContent = '0';
+
+  const tBox = document.getElementById('kp-transfer-box');
+  if (isTransfer) {
+    tBox.classList.add('show');
+    renderTransferTargets();
+  } else {
+    tBox.classList.remove('show');
+  }
+
+  document.getElementById('keypad-modal').classList.add('open');
+}
+
+function renderTransferTargets() {
+  const box = document.getElementById('kp-transfer-targets');
+  box.innerHTML = ledgers
+    .filter(l => l.id !== kpState.ledgerId)
+    .map(l => `<button class="chip-btn ${kpState.targetLedgerId === l.id ? 'active' : ''}" onclick="kpState.targetLedgerId='${l.id}';renderTransferTargets();">${l.name}</button>`)
+    .join('');
+}
+
+function closeKeypad() {
+  document.getElementById('keypad-modal').classList.remove('open');
+}
+
+function kpPress(digit) {
+  if (kpState.amountStr === '0') kpState.amountStr = digit;
+  else if (kpState.amountStr.length < 8) kpState.amountStr += digit;
+  document.getElementById('kp-amount-val').textContent = Number(kpState.amountStr).toLocaleString();
+}
+
+function kpClear() {
+  kpState.amountStr = '0';
+  document.getElementById('kp-amount-val').textContent = '0';
+}
+
+function kpBackspace() {
+  kpState.amountStr = kpState.amountStr.length > 1 ? kpState.amountStr.slice(0, -1) : '0';
+  document.getElementById('kp-amount-val').textContent = Number(kpState.amountStr).toLocaleString();
+}
+
+function saveTransaction() {
+  const amt = parseFloat(kpState.amountStr);
+  if (!amt || amt <= 0) {
+    showToast('請輸入大於 0 的金額');
+    return;
+  }
+  const dateVal = document.getElementById('kp-date-input').value || selectedDateStr;
+  const noteVal = document.getElementById('kp-note-input').value.trim();
+
+  if (kpState.category === '轉帳' && kpState.targetLedgerId) {
+    const fromL = ledgers.find(x => x.id === kpState.ledgerId);
+    const toL = ledgers.find(x => x.id === kpState.targetLedgerId);
+    const baseId = 'tx_' + Date.now();
+    transactions.unshift({
+      id: baseId + '_out',
+      ledgerId: kpState.ledgerId,
+      type: 'expense',
+      category: '轉帳',
+      amount: amt,
+      date: dateVal,
+      note: noteVal || `轉出至 ${toL ? toL.name : ''}`
+    });
+    transactions.unshift({
+      id: baseId + '_in',
+      ledgerId: kpState.targetLedgerId,
+      type: 'income',
+      category: '轉帳',
+      amount: amt,
+      date: dateVal,
+      note: noteVal || `來自 ${fromL ? fromL.name : ''}`
+    });
+  } else {
+    transactions.unshift({
+      id: 'tx_' + Date.now(),
+      ledgerId: kpState.ledgerId,
+      type: kpState.type,
+      category: kpState.category,
+      amount: amt,
+      date: dateVal,
+      note: noteVal
+    });
+  }
+
+  activeLedgerId = kpState.ledgerId;
+  selectedDateStr = dateVal;
+  const parts = dateVal.split('-');
+  calYear = parseInt(parts[0], 10);
+  calMonth = parseInt(parts[1], 10);
+  currentTab = 'ledger';
+
+  persistAll();
+  closeKeypad();
+  renderAll();
+  showToast('已儲存記帳');
+}
+
+function renderAll() {
+  applyTheme();
+  renderHeader();
+  renderBottomNav();
+  renderMainContent();
+}
+
+initStore();
+renderAll();
+</script>
+</body>
+</html>
